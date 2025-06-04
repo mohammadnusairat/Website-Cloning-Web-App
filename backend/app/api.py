@@ -1,0 +1,190 @@
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Dict, List
+import uvicorn
+import requests
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+from hyperbrowser import Hyperbrowser
+from hyperbrowser.models import StartScrapeJobParams, ScrapeOptions
+
+load_dotenv()
+
+openAIClient = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Remember to set this in Railway !!!
+
+# Create FastAPI instance
+app = FastAPI(
+    title="Orchids Challenge API",
+    description="A starter FastAPI template for the Orchids Challenge backend",
+    version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Pydantic models
+
+
+class Item(BaseModel):
+    id: int
+    name: str
+    description: str = None
+
+
+class ItemCreate(BaseModel):
+    name: str
+    description: str = None
+
+class CloneRequest(BaseModel):
+    url: str
+
+
+# In-memory storage for demo purposes
+items_db: List[Item] = [
+    Item(id=1, name="Sample Item", description="This is a sample item"),
+    Item(id=2, name="Another Item", description="This is another sample item")
+]
+
+# Root endpoint
+
+
+@app.get("/")
+async def root():
+    return {"message": "Hello from FastAPI backend!", "status": "running"}
+
+# Health check endpoint
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "orchids-challenge-api"}
+
+# Get all items
+
+
+@app.get("/items", response_model=List[Item])
+async def get_items():
+    return items_db
+
+# Get item by ID
+
+
+@app.get("/items/{item_id}", response_model=Item)
+async def get_item(item_id: int):
+    for item in items_db:
+        if item.id == item_id:
+            return item
+    return {"error": "Item not found"}
+
+# Create new item
+
+
+@app.post("/items", response_model=Item)
+async def create_item(item: ItemCreate):
+    new_id = max([item.id for item in items_db], default=0) + 1
+    new_item = Item(id=new_id, **item.dict())
+    items_db.append(new_item)
+    return new_item
+
+# Update item
+
+
+@app.put("/items/{item_id}", response_model=Item)
+async def update_item(item_id: int, item: ItemCreate):
+    for i, existing_item in enumerate(items_db):
+        if existing_item.id == item_id:
+            updated_item = Item(id=item_id, **item.dict())
+            items_db[i] = updated_item
+            return updated_item
+    return {"error": "Item not found"}
+
+# Delete item
+
+
+@app.delete("/items/{item_id}")
+async def delete_item(item_id: int):
+    for i, item in enumerate(items_db):
+        if item.id == item_id:
+            deleted_item = items_db.pop(i)
+            return {"message": f"Item {item_id} deleted successfully", "deleted_item": deleted_item}
+    return {"error": "Item not found"}
+
+# Clone a website
+
+@app.post("/clone")
+async def clone_website(req: CloneRequest):
+    # Step 1: Scrape using Hyperbrowser SDK
+    client = Hyperbrowser(api_key=os.getenv("HYPERBROWSER_API_KEY"))
+    try:
+        scrape_result = client.scrape.start_and_wait(
+            StartScrapeJobParams(
+                url=req.url,
+                scrape_options=ScrapeOptions(
+                    formats=["html", "markdown", "links"],
+                    only_main_content=False,
+                    timeout=10000
+                )
+            )
+        )
+    except Exception as e:
+        return {"error": "Failed to scrape with Hyperbrowser", "details": str(e)}
+
+    html = scrape_result.data.html or ""
+    markdown = scrape_result.data.markdown or ""
+    links = scrape_result.data.links or []
+    title = scrape_result.data.metadata.get("title") if scrape_result.data.metadata else "Cloned Site"
+    css = ""  # Hyperbrowser doesn't return raw CSS — leave empty or extract later
+
+    # Step 2: Ask GPT-4 to replicate using prompt
+    prompt = f"""You are a web developer AI. Generate a single HTML file that replicates the aesthetics and structure of the following website.
+
+Use the provided HTML for layout and styling reference.
+Use the Markdown to understand the clean, readable content.
+Use the list of links to rebuild basic navigation elements if needed.
+
+Title: {title}
+
+HTML:
+{html}
+
+Markdown:
+{markdown}
+
+Links:
+{links}
+
+Your output should be a complete, clean HTML page using inline or <style> CSS. Do not include JavaScript."""
+
+    llm_response = openAIClient.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a helpful AI that generates HTML websites from scraped content."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+        max_tokens=4000
+    )
+
+    generated_html = llm_response.choices[0].message.content
+    return {"cloned_html": generated_html}
+
+# def main():
+#     """Run the application"""
+#     uvicorn.run(
+#         "hello:app",
+#         host="127.0.0.1",
+#         port=8000,
+#         reload=True
+#     )
+
+
+# if __name__ == "__main__":
+#     main()
