@@ -9,6 +9,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from hyperbrowser import Hyperbrowser
 from hyperbrowser.models import StartScrapeJobParams, ScrapeOptions
+from urllib.parse import urljoin
+from bs4 import BeautifulSoup
 
 load_dotenv()
 
@@ -130,7 +132,8 @@ async def clone_website(req: CloneRequest):
                 scrape_options=ScrapeOptions(
                     formats=["html", "markdown", "links"],
                     only_main_content=False,
-                    timeout=10000
+                    timeout=15000, # 15 second timeout
+                    # wait_for=1500 # 1.5 second wait time
                 )
             )
         )
@@ -141,27 +144,50 @@ async def clone_website(req: CloneRequest):
     markdown = scrape_result.data.markdown or ""
     links = scrape_result.data.links or []
     title = scrape_result.data.metadata.get("title") if scrape_result.data.metadata else "Cloned Site"
-    css = ""  # Hyperbrowser doesn't return raw CSS — leave empty or extract later
+
+    # Manually extract linked stylesheets
+    soup = BeautifulSoup(html, "html.parser")
+    css_snippets = []
+
+    for link_tag in soup.find_all("link", rel="stylesheet"):
+        href = link_tag.get("href")
+        if href:
+            full_url = urljoin(req.url, href)
+            try:
+                css_response = requests.get(full_url, timeout=5)
+                if css_response.status_code == 200:
+                    css_snippets.append(css_response.text)
+            except:
+                continue
+
+    combined_css = "\n".join(css_snippets)
+
+    css = combined_css or ""  # Hyperbrowser doesn't return raw CSS — extract manually
 
     # Step 2: Ask GPT-4 to replicate using prompt
-    prompt = f"""You are a web developer AI. Generate a single HTML file that replicates the aesthetics and structure of the following website.
+    prompt = f"""
+    You are a web developer AI. Generate a single HTML file that replicates the aesthetics and structure of the following website.
 
-Use the provided HTML for layout and styling reference.
-Use the Markdown to understand the clean, readable content.
-Use the list of links to rebuild basic navigation elements if needed.
+    Use the provided HTML and CSS for layout and styling reference.
+    Use the Markdown to understand the clean, readable content.
+    Use the list of links to rebuild basic navigation elements if needed.
 
-Title: {title}
+    Title: {title}
 
-HTML:
-{html}
+    HTML:
+    {html}
 
-Markdown:
-{markdown}
+    CSS:
+    {css}
 
-Links:
-{links}
+    Markdown:
+    {markdown}
 
-Your output should be a complete, clean HTML page using inline or <style> CSS. Do not include JavaScript."""
+    Links:
+    {links}
+
+    Your output should be a complete, clean HTML page using inline or <style> CSS. Do not include JavaScript.
+    """
 
     llm_response = openAIClient.chat.completions.create(
         model="gpt-4o",
@@ -175,16 +201,3 @@ Your output should be a complete, clean HTML page using inline or <style> CSS. D
 
     generated_html = llm_response.choices[0].message.content
     return {"cloned_html": generated_html}
-
-# def main():
-#     """Run the application"""
-#     uvicorn.run(
-#         "hello:app",
-#         host="127.0.0.1",
-#         port=8000,
-#         reload=True
-#     )
-
-
-# if __name__ == "__main__":
-#     main()
