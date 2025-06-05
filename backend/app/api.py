@@ -101,6 +101,10 @@ async def delete_item(item_id: int):
             return {"message": f"Item {item_id} deleted successfully", "deleted_item": deleted_item}
     return {"error": "Item not found"}
 
+# helper function to stay under token limit
+def safe_truncate(text, max_chars=6000):
+    return text[:max_chars] if len(text) > max_chars else text
+
 # Clone a website
 @app.post("/clone")
 async def clone_website(req: CloneRequest):
@@ -121,8 +125,8 @@ async def clone_website(req: CloneRequest):
     except Exception as e:
         return {"error": "Failed to scrape with Hyperbrowser", "details": str(e)}
 
-    html = scrape_result.data.html or ""
-    markdown = scrape_result.data.markdown or ""
+    html = safe_truncate(scrape_result.data.html, 8000) or ""
+    markdown = safe_truncate(scrape_result.data.markdown, 5000) or ""
     links = scrape_result.data.links or []
     title = scrape_result.data.metadata.get("title") if scrape_result.data.metadata else "Cloned Site"
 
@@ -143,7 +147,7 @@ async def clone_website(req: CloneRequest):
 
     combined_css = "\n".join(css_snippets)
 
-    css = combined_css or ""
+    css = safe_truncate(combined_css, 5000) or ""
 
     # Step 2: Ask GPT-4o to replicate using prompt
     prompt = f"""

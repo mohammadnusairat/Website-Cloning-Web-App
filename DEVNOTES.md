@@ -21,6 +21,9 @@ To scrape design context, I leveraged the **Hyperbrowser SDK** due to its reliab
 ### Final Pipeline Outcome
 The pipeline I settled on—scraping HTML, Markdown, and links via Hyperbrowser and then passing it to GPT-4o with a structured, focused prompt—proved to be the most accurate and scalable approach I could create **within the limited time I had**. It consistently replicated layout, fonts, and spacing for most standard websites.
 
+### IMPORTANT NOTE !!!
+When attempting large websites that have huge amounts of tokens, like [lovable.dev](https://lovable.dev/) (~116,000 tokens), the app automatically truncates the input to keep below the 30,000 token limit set by the gpt api. This will be reflected in the cloned website. 
+
 ### Ideas for Improvement
 If I had more time, here are a few areas I would explore further:
 
