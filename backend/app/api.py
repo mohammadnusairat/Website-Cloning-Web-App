@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 load_dotenv()
 
-openAIClient = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Remember to set this in Railway !!!
+openAIClient = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Create FastAPI instance
 app = FastAPI(
@@ -33,13 +33,10 @@ app.add_middleware(
 )
 
 # Pydantic models
-
-
 class Item(BaseModel):
     id: int
     name: str
     description: str = None
-
 
 class ItemCreate(BaseModel):
     name: str
@@ -48,7 +45,6 @@ class ItemCreate(BaseModel):
 class CloneRequest(BaseModel):
     url: str
 
-
 # In-memory storage for demo purposes
 items_db: List[Item] = [
     Item(id=1, name="Sample Item", description="This is a sample item"),
@@ -56,29 +52,21 @@ items_db: List[Item] = [
 ]
 
 # Root endpoint
-
-
 @app.get("/")
 async def root():
     return {"message": "Hello from FastAPI backend!", "status": "running"}
 
 # Health check endpoint
-
-
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "orchids-challenge-api"}
 
 # Get all items
-
-
 @app.get("/items", response_model=List[Item])
 async def get_items():
     return items_db
 
 # Get item by ID
-
-
 @app.get("/items/{item_id}", response_model=Item)
 async def get_item(item_id: int):
     for item in items_db:
@@ -87,8 +75,6 @@ async def get_item(item_id: int):
     return {"error": "Item not found"}
 
 # Create new item
-
-
 @app.post("/items", response_model=Item)
 async def create_item(item: ItemCreate):
     new_id = max([item.id for item in items_db], default=0) + 1
@@ -97,8 +83,6 @@ async def create_item(item: ItemCreate):
     return new_item
 
 # Update item
-
-
 @app.put("/items/{item_id}", response_model=Item)
 async def update_item(item_id: int, item: ItemCreate):
     for i, existing_item in enumerate(items_db):
@@ -109,8 +93,6 @@ async def update_item(item_id: int, item: ItemCreate):
     return {"error": "Item not found"}
 
 # Delete item
-
-
 @app.delete("/items/{item_id}")
 async def delete_item(item_id: int):
     for i, item in enumerate(items_db):
@@ -120,7 +102,6 @@ async def delete_item(item_id: int):
     return {"error": "Item not found"}
 
 # Clone a website
-
 @app.post("/clone")
 async def clone_website(req: CloneRequest):
     # Step 1: Scrape using Hyperbrowser SDK
@@ -145,7 +126,7 @@ async def clone_website(req: CloneRequest):
     links = scrape_result.data.links or []
     title = scrape_result.data.metadata.get("title") if scrape_result.data.metadata else "Cloned Site"
 
-    # Manually extract linked stylesheets
+    # Hyperbrowser doesn't return raw CSS, manually extract linked stylesheets
     soup = BeautifulSoup(html, "html.parser")
     css_snippets = []
 
@@ -162,9 +143,9 @@ async def clone_website(req: CloneRequest):
 
     combined_css = "\n".join(css_snippets)
 
-    css = combined_css or ""  # Hyperbrowser doesn't return raw CSS — extract manually
+    css = combined_css or ""
 
-    # Step 2: Ask GPT-4 to replicate using prompt
+    # Step 2: Ask GPT-4o to replicate using prompt
     prompt = f"""
     You are a web developer AI. Generate a single HTML file that replicates the aesthetics and structure of the following website.
 
@@ -195,7 +176,7 @@ async def clone_website(req: CloneRequest):
             {"role": "system", "content": "You are a helpful AI that generates HTML websites from scraped content."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.7,
+        temperature=0.5, # fine-tuned balance between deterministic and improvising
         max_tokens=4000
     )
 
