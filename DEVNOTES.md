@@ -13,6 +13,8 @@ Compared to other models, GPT-4o is fine-tuned for generating **clean, semantic 
 
 GPT-4o also brings prompt flexibility. It handled large, structured prompts well, even when including several different types of scraped content (HTML, CSS, Markdown, Links). Gemini struggled with prompt length, and Claude occasionally ignored the structural cues.
 
+This is not to say that GPT-4o is perfect. One of the biggest roadblocks is actually the generative nature of ChatGPT, because it can sometimes produce varying results when cloning more complicated websites. Therefore after weighing the pros and the cons, I decided to go with GPT-4o.
+
 ### Hyperbrowser Usage and Prompt Strategy
 To scrape design context, I leveraged the **Hyperbrowser SDK** due to its reliable DOM capture and metadata support. I experimented with including screenshots in the prompt (by extracting image URLs / converting to base64), but found that this actually *reduced accuracy*! The model either ignored the visual data or became distracted by too much prompt noise. Ultimately, excluding screenshots improved results by keeping the prompt clean and focused on the structural elements.
 
@@ -26,9 +28,9 @@ If I had more time, here are a few areas I would explore further:
 
 - Extract computed styles or critical CSS, then try and reduce the noise before feeding to GPT.
 
-- Maybe try building a two-stage agentic pipeline: first generating layout structure, then styling layer—to reduce bloated or inconsistent output. This could possibly yield optimally accurate results if implemented correctly.
+- Maybe try building a **two-stage agentic pipeline**: first generating layout structure, then styling layer—to reduce bloated or inconsistent output. Could use different AI for their specific strengths (GPT, Claude, gemini, etc.) and monitor resulsts. This could possibly yield optimally accurate results if implemented correctly.
 
-Thanks again for your time and consideration! I hope this gives insight into my approach, and I’m looking forward to hearing back for my application decision.
+Thanks again for your time and consideration! I hope this gives insight into my approach, and and I’m excited about the opportunity to contribute disrupting the entire no code website building space with Orchids!
 
 Best,  
 Mohammad Nusairat
